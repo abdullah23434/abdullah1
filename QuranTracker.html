@@ -1,1 +1,174 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>عداد ختم القرآن الذكي 📖</title>
+<style>
+body { font-family: Arial; color:#fff; text-align:center; padding:20px; transition: background 1s; background:#2c3e50;}
+h1 { color:#ffd700;}
+select,input {padding:5px;margin:5px;}
+button {padding:8px 12px;margin:5px;background:#ffd700;color:#333;border:none;border-radius:6px;cursor:pointer;}
+button:hover {background:#e6c200;}
+#schedule,#progress{margin-top:20px;text-align:left;display:inline-block;font-size:1.1em;}
+table{border-collapse:collapse;margin-top:10px;}
+td,th{border:1px solid #fff;padding:8px 12px;}
+th{background:#ffd700;color:#333;}
+</style>
+</head>
+<body>
 
+<h1>عداد ختم القرآن الذكي 📖</h1>
+
+<div>
+اختر الدولة:
+<select id="country" onchange="updateCities()">
+<option value="">-- اختر الدولة --</option>
+<option value="SA">السعودية</option>
+<option value="EG">مصر</option>
+<option value="AE">الإمارات</option>
+<option value="KW">الكويت</option>
+<option value="JO">الأردن</option>
+<option value="LB">لبنان</option>
+<option value="IQ">العراق</option>
+<option value="SY">سوريا</option>
+<option value="LY">ليبيا</option>
+<option value="MA">المغرب</option>
+<option value="TN">تونس</option>
+<option value="DZ">الجزائر</option>
+<option value="OM">عمان</option>
+<option value="QA">قطر</option>
+<option value="BH">البحرين</option>
+</select><br>
+
+اختر المدينة:
+<select id="city">
+<option value="">-- اختر المدينة --</option>
+</select><br>
+
+كم صفحة قرأت حتى الآن؟ <input type="number" id="readPages" value="0"><br>
+إجمالي صفحات القرآن: <input type="number" id="totalPages" value="604"><br>
+كم يوم تريد أن تختم القرآن؟ <input type="number" id="days" value="30"><br>
+<button onclick="start()">ابدأ الحساب</button>
+</div>
+
+<div id="schedule"></div>
+<div id="progress"></div>
+
+<script>
+// 🧠 إعداد المتغيرات
+let pagesPerDay=0, remainingPages=0, currentDay=1;
+let dailyProgress=JSON.parse(localStorage.getItem("dailyProgress") || "[]");
+const prayers=["الفجر","الظهر","العصر","المغرب","العشاء"];
+const prayerColors={"الفجر":"#34495e","الظهر":"#3b5998","العصر":"#f39c12","المغرب":"#e67e22","العشاء":"#2c3e50"};
+
+// المدن لكل دولة
+const locations={
+  "SA":["الرياض","جدة","مكة","الدمام","المدينة"],
+  "EG":["القاهرة","الإسكندرية","الجيزة"],
+  "AE":["أبوظبي","دبي","الشارقة"],
+  "KW":["الكويت"],
+  "JO":["عمّان","إربد"],
+  "LB":["بيروت"],
+  "IQ":["بغداد","البصرة"],
+  "SY":["دمشق","حلب"],
+  "LY":["طرابلس","بنغازي"],
+  "MA":["الدار البيضاء","الرباط"],
+  "TN":["تونس","صفاقس"],
+  "DZ":["الجزائر","وهران"],
+  "OM":["مسقط","صلالة"],
+  "QA":["الدوحة"],
+  "BH":["المنامة"]
+};
+
+// تحديث المدن
+function updateCities(){
+  const country=document.getElementById("country").value;
+  const citySelect=document.getElementById("city");
+  citySelect.innerHTML='<option value="">-- اختر المدينة --</option>';
+  if(locations[country]){
+    locations[country].forEach(city=>{
+      const opt=document.createElement("option");
+      opt.value=city; opt.textContent=city;
+      citySelect.appendChild(opt);
+    });
+  }
+}
+
+// تغيير لون الصفحة حسب الصلاة الحالية (تقريبي)
+function setBackground(){
+  const hour=new Date().getHours();
+  let color="#2c3e50"; // خافت افتراضي
+  if(hour>=5 && hour<12) color=prayerColors["الفجر"];
+  else if(hour>=12 && hour<15) color=prayerColors["الظهر"];
+  else if(hour>=15 && hour<18) color=prayerColors["العصر"];
+  else if(hour>=18 && hour<19) color=prayerColors["المغرب"];
+  else color=prayerColors["العشاء"];
+  document.body.style.background=color;
+}
+setBackground();
+setInterval(setBackground,60000);
+
+// بدء الحساب
+function start(){
+  const country=document.getElementById("country").value;
+  const city=document.getElementById("city").value;
+  if(!country || !city){ alert("اختر الدولة والمدينة!"); return; }
+
+  const read=parseInt(document.getElementById("readPages").value);
+  const total=parseInt(document.getElementById("totalPages").value);
+  const days=parseInt(document.getElementById("days").value);
+
+  remainingPages=total-read;
+  if(remainingPages<=0){ document.getElementById("schedule").innerHTML="🎉 مبروك ختمت كتاب الله!"; document.getElementById("progress").innerHTML=""; return;}
+
+  pagesPerDay=Math.ceil(remainingPages/days);
+  showDay(currentDay);
+}
+
+// عرض اليوم
+function showDay(day){
+  let perPrayer=Math.floor(pagesPerDay/5);
+  let extra=pagesPerDay%5;
+  let table=`<h2>📖 اليوم ${day}</h2><table><tr><th>الصلاة</th><th>عدد الصفحات</th><th>تم القراءة؟</th></tr>`;
+  prayers.forEach(prayer=>{
+    let pages=perPrayer; if(extra>0){pages+=1; extra-=1;}
+    let checked="";
+    if(dailyProgress[day-1] && dailyProgress[day-1][prayer]) checked="checked";
+    table+=`<tr><td>${prayer}</td><td>${pages}</td><td><input type="checkbox" class="check" data-pages="${pages}" data-prayer="${prayer}" ${checked} onchange="updateProgress()"></td></tr>`;
+  });
+  table+="</table><button onclick='nextDay()'>➡️ اليوم التالي</button>";
+  document.getElementById("schedule").innerHTML=table;
+  updateProgress();
+}
+
+// تحديث التقدم
+function updateProgress(){
+  const checkboxes=document.querySelectorAll(".check");
+  let dayData={};
+  checkboxes.forEach(box=>{ dayData[box.dataset.prayer]=box.checked; });
+  dailyProgress[currentDay-1]=dayData;
+  localStorage.setItem("dailyProgress",JSON.stringify(dailyProgress));
+
+  let left=remainingPages;
+  dailyProgress.forEach(day=>{
+    if(day){ Object.keys(day).forEach(p=>{ if(day[p]) left-=parseInt(document.querySelector(`.check[data-prayer='${p}']`)?.dataset.pages||0); }); }
+  });
+
+  if(left<=0){ document.getElementById("schedule").innerHTML="🎉 مبروك ختمت كتاب الله!"; document.getElementById("progress").innerHTML=""; return;}
+  document.getElementById("progress").innerHTML=`📖 المتبقية: ${left} صفحة`;
+}
+
+// اليوم التالي
+function nextDay(){
+  updateProgress();
+  currentDay++;
+  const days=parseInt(document.getElementById("days").value);
+  if(currentDay>days){
+    document.getElementById("schedule").innerHTML="✨ انتهت المدة المحددة!";
+    document.getElementById("progress").innerHTML="";
+  } else showDay(currentDay);
+}
+</script>
+
+</body>
+</html>
